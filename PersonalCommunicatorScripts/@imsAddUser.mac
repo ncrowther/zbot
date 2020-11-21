@@ -38,7 +38,7 @@ Sub addUser()
     autECLSession.autECLOIA.WaitForAppAvailable
     autECLSession.autECLOIA.WaitForInputReady
     autECLSession.autECLPS.SendKeys (userId)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
     autECLSession.autECLOIA.WaitForInputReady
     autECLSession.autECLPS.SendKeys "[enter]"
 
@@ -47,42 +47,52 @@ Sub addUser()
     autECLSession.autECLOIA.WaitForAppAvailable
     autECLSession.autECLOIA.WaitForInputReady
     autECLSession.autECLPS.SendKeys (country)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem EMPLOYEE NAME A(16)
     employeeName = Left(employeeName + "                  ", 16)
     autECLSession.autECLPS.SendKeys (employeeName)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem EMPLOYEE NUMBER (9(7))
     autECLSession.autECLPS.SendKeys (employeeNumber)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem CONTROL GROUP A(8)
     autECLSession.autECLPS.SendKeys (controlGroup)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem PASSWORD A(8)
     autECLSession.autECLPS.SendKeys (userPassword)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem DIVISION 9(1)
     autECLSession.autECLPS.SendKeys (division)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem BUSINESS UNIT CODE 9(7)
     autECLSession.autECLPS.SendKeys (businessUnitCode)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     Rem USER EFFECTIVE DATE 9(8)
     autECLSession.autECLPS.SendKeys (userEffectiveDate)
-    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLPS.Wait 100
 
     autECLSession.autECLOIA.WaitForAppAvailable
     autECLSession.autECLOIA.WaitForInputReady
     autECLSession.autECLPS.SendKeys "[enter]"
 
     autECLSession.autECLPS.Wait 1000
+
+    Dim result
+    result = autECLSession.autECLPS.GetText(23, 8, 1)
+
+    If result = "I" Then
+       showResult ("OK")
+    Else
+       showResult ("ERROR")
+    End If
+
 
 End Sub
 
@@ -154,8 +164,8 @@ End Sub
     objIE.Document.body.Style.overflow = "auto"
     ' Make the window visible
     objIE.Visible = True
-    ' Set focus on password input field
-    'objIE.Document.all.Password.Focus
+    ' Set focus on UserId input field
+    objIE.Document.all.UserId.Focus
 
     ' Wait till the OK button has been clicked
     On Error Resume Next
@@ -175,6 +185,75 @@ End Sub
     division = objIE.Document.all.division.Value
     businessUnitCode = objIE.Document.all.businessUnitCode.Value
     userEffectiveDate = objIE.Document.all.userEffectiveDate.Value
+
+    ' Terminate the IE object
+    objIE.Quit
+    Set objIE = Nothing
+
+    On Error Resume Next
+
+    Set wshShell = Nothing
+   End Sub
+
+   Sub showResult(resultString)
+   ' This function uses Internet Explorer to
+   ' create a dialog to show the result from execution of the macro.
+   '
+   ' Argument:   [string] prompt text, e.g. "Result"
+   '
+   Dim objIE, strHTML, strRegValFB, strRegValLE, wshShell
+
+    Set wshShell = CreateObject("WScript.Shell")
+
+    ' Create an IE object
+    Set objIE = CreateObject("InternetExplorer.Application")
+    ' specify some of the IE window's settings
+    objIE.Navigate "about:blank"
+    ' Add string of "invisible" characters (500 tabs) to clear the title bar
+    objIE.Document.Title = "Password " & String(500, 7)
+
+    objIE.AddressBar = False
+    objIE.Resizable = False
+    objIE.StatusBar = False
+    objIE.Toolbar = False
+    objIE.Width = 320
+    objIE.Height = 500
+    ' Center the dialog window on the screen
+    With objIE.Document.parentWindow.screen
+        objIE.Left = (.availWidth - objIE.Width) \ 2
+        objIE.Top = (.availheight - objIE.Height) \ 2
+    End With
+    ' Wait till IE is ready
+    Do While objIE.Busy
+        WScript.Sleep 200
+    Loop
+    ' Insert the HTML code to prompt for a password
+    strHTML = "<div style=""text-align: center;"">" _
+            & "<p>Result</p>" _
+            & "<p><input type=""Text"" size=""20"" id=""Result"" value=""" & resultString & """ /></p>" _
+            & "<p><input type=""hidden"" id=""OK"" name=""OK"" value=""0"" />" _
+            & "<input type=""submit"" value="" OK "" id=""OKButton"" " _
+            & "onclick=""document.all.OK.value=1"" /></p>" _
+            & "</div>"
+    objIE.Document.body.innerHTML = strHTML
+    ' Hide the scrollbars
+    objIE.Document.body.Style.overflow = "auto"
+    ' Make the window visible
+    objIE.Visible = True
+
+    ' Set focus on Result input field
+    objIE.Document.all.Result.Focus
+
+    ' Wait till the OK button has been clicked
+    On Error Resume Next
+    Do While objIE.Document.all.OK.Value = 0
+        WScript.Sleep 2000
+        ' Error handling code by Denis St-Pierre
+    Loop
+    On Error GoTo 0
+
+    ' Read the data from the dialog window
+    ' objIE.Document.all.result.value = resultString
 
     ' Terminate the IE object
     objIE.Quit

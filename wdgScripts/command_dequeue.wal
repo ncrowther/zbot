@@ -1,0 +1,41 @@
+
+	q­ˆ9-F›å1(€ã¹defVar --name leads --type DataTable
+defVar --name row_count --type Numeric
+defVar --name column_count --type Numeric
+defVar --name row_iterator --type Numeric --value 1
+defVar --name userId --type String
+defVar --name country --type String
+defVar --name employeeName --type String
+defVar --name employeeNumber --type String
+defVar --name controlGroup --type String
+defVar --name password --type String
+defVar --name division --type String
+defVar --name businessUnitCode --type String
+defVar --name userEffectiveDate --type String
+defVar --name command --type String
+defVar --name systemQueueConnected --type Boolean
+defVar --name systemQueueConnection --type QueueConnection
+defVar --name gotQueue --type Boolean
+defVar --name dataQueue --type MessageQueue
+defVar --name queueMessage --type QueueMessage
+defVar --name messagesCount --type Numeric
+
+connectSystemMQ systemQueueConnected=success systemQueueConnection=value
+assert --message "Could not connect to WDG\'s system MQ." --left "${systemQueueConnected}" --operator "Is_True"
+getQueue --connection ${systemQueueConnection} --fromconfiguration  --queue dataProcessing gotQueue=success dataQueue=value
+assert --message "Could not get the queue!" --left "${gotQueue}" --operator "Is_True"
+count --collection "${dataQueue}" messagesCount=value
+while --left "${messagesCount}" --operator "Greater_Than" --right 0
+	dequeue --collection "${dataQueue}" --handleerror  queueMessage=value
+	jsonToTable --json "${queueMessage.Body}" --jsonPath "$" leads=value row_count=rows
+	setVar --name "${row_iterator}" --value 1
+	while --left "${row_count}" --operator "Greater_Than_Equal_To" --right "${row_iterator}"
+		// Store data in variables
+		mapTableRow --dataTable ${leads} --row ${row_iterator} --mappings "name=UserId=${userId},name=Country=${country},name=EmployeeName=${employeeName},name=EmployeeNumber=${employeeNumber},name=controlGroup=${controlGroup},name=password=${password},name=division=${division},name=businessUnitCode=${businessUnitCode},name=userEffectiveDate=${userEffectiveDate},name=command=${command}"
+		logMessage --message "Dequeued userId: ${userId} from dataProcessing queue\r\n" --type "Info"
+		//  input fields
+		evaluate --expression "${row_iterator} + 1" row_iterator=value
+	endWhile
+	count --collection "${dataQueue}" messagesCount=value
+endWhile
+"	¶göÈ¡ðK•¥¨áw%«Í*	20.10.0.0
