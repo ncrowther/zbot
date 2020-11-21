@@ -1,0 +1,30 @@
+ãdefVar --name myDocumentsFolderPath --type String
+defVar --name commandTable --type DataTable
+defVar --name tableIndex --type Numeric
+defVar --name userId --type String
+defVar --name country --type String
+defVar --name employeeName --type String
+defVar --name employeeNumber --type String
+defVar --name controlGroup --type String
+defVar --name password --type String
+defVar --name division --type String
+defVar --name businessUnitCode --type String
+defVar --name userEffectiveDate --type String
+defVar --name command --type String
+defVar --name systemQueueConnected --type Boolean
+defVar --name systemQueueConnection --type QueueConnection
+defVar --name gotQueue --type Boolean
+defVar --name dataQueue --type MessageQueue
+defVar --name jsonToEnqueue --type String
+getSpecialFolder --folder "MyDocuments" myDocumentsFolderPath=value
+readCSV --filepath "D:\\A_Consultancy\\Presales\\IBMIdServices\\data\\users.csv" --delimiter "," --hasheaders  --encoding "Default" --missingfieldaction "ParseError" commandTable=value
+connectSystemMQ systemQueueConnected=success systemQueueConnection=value
+assert --message "Could not connect to WDG\'s system MQ." --left "${systemQueueConnected}" --operator "Is_True"
+getQueue --connection ${systemQueueConnection} --fromconfiguration  --queue dataProcessing gotQueue=success dataQueue=value
+assert --message "Could not get the queue!" --left "${gotQueue}" --operator "Is_True"
+for --variable ${tableIndex} --from 1 --to ${commandTable.Rows} --step 1
+	mapTableRow --dataTable ${commandTable} --row ${tableIndex} --mappings "name=UserId=${userId},name=Country=${country},name=EmployeeName=${employeeName},name=EmployeeNumber=${employeeNumber},name=controlGroup=${controlGroup},name=password=${password},name=division=${division},name=businessUnitCode=${businessUnitCode},name=userEffectiveDate=${userEffectiveDate},name=command=${command}"
+	setVar --name "${jsonToEnqueue}" --value "{\r\n    \"UserId\":\"${userId}\",\n    \"Country\":\"${country}\",\n    \"EmployeeName\":\"${employeeName}\",\n    \"EmployeeNumber\":\"${employeeNumber}\",\n    \"controlGroup\":\"${controlGroup}\",\n    \"password\":\"${password}\",\n    \"Division\":\"${division}\",\n    \"businessUnitCode\":\"${businessUnitCode}\",\n    \"userEffectiveDate\":\"${userEffectiveDate}\",\n    \"command\":\"${command}\"\r\n}"
+	enqueue --collection "${dataQueue}" --isserver  --value "${jsonToEnqueue}"
+	logMessage --message "Enqueued UserId: ${userId} to dataProcessing queue\r\n" --type "Info"
+next*	20.10.0.0

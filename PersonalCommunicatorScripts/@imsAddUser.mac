@@ -1,0 +1,186 @@
+Rem ********** IBM PERSONAL COMMUNICATOR VBSCRIPT MACRO *****************
+Rem
+Rem  This script adds a user to IMS.  Data is passed via a IE dialog box
+Rem  Precondition: IMS is logged in and option 2 (add user is selected)
+Rem
+Rem This script needs to be placed in the IBM personal Communicator root directory for the installed user, For me this is:
+Rem  C:\Users\NigelCrowther\AppData\Roaming\IBM\Personal Communications
+Rem
+
+[PCOMM SCRIPT HEADER]
+Language = VBSCRIPT
+Description =
+[PCOMM SCRIPT SOURCE]
+Option Explicit
+autECLSession.SetConnectionByName (ThisSessionName)
+
+Dim userId
+Dim country
+Dim employeeName
+Dim employeeNumber
+Dim controlGroup
+Dim division
+Dim userPassword
+Dim businessUnitCode
+Dim userEffectiveDate
+
+Rem This line calls the macro subroutine
+
+promptForCredentials ("Enter Data")
+
+addUser
+'logoffComsec
+
+Sub addUser()
+
+    Rem USER ID A(7)
+    autECLSession.autECLPS.WaitForCursor 21, 22, 5000
+    autECLSession.autECLOIA.WaitForAppAvailable
+    autECLSession.autECLOIA.WaitForInputReady
+    autECLSession.autECLPS.SendKeys (userId)
+    autECLSession.autECLPS.Wait 1000
+    autECLSession.autECLOIA.WaitForInputReady
+    autECLSession.autECLPS.SendKeys "[enter]"
+
+    Rem USER COUNTRY A(3)
+    autECLSession.autECLPS.WaitForCursor 6, 37, 10000
+    autECLSession.autECLOIA.WaitForAppAvailable
+    autECLSession.autECLOIA.WaitForInputReady
+    autECLSession.autECLPS.SendKeys (country)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem EMPLOYEE NAME A(16)
+    employeeName = Left(employeeName + "                  ", 16)
+    autECLSession.autECLPS.SendKeys (employeeName)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem EMPLOYEE NUMBER (9(7))
+    autECLSession.autECLPS.SendKeys (employeeNumber)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem CONTROL GROUP A(8)
+    autECLSession.autECLPS.SendKeys (controlGroup)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem PASSWORD A(8)
+    autECLSession.autECLPS.SendKeys (userPassword)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem DIVISION 9(1)
+    autECLSession.autECLPS.SendKeys (division)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem BUSINESS UNIT CODE 9(7)
+    autECLSession.autECLPS.SendKeys (businessUnitCode)
+    autECLSession.autECLPS.Wait 1000
+
+    Rem USER EFFECTIVE DATE 9(8)
+    autECLSession.autECLPS.SendKeys (userEffectiveDate)
+    autECLSession.autECLPS.Wait 1000
+
+    autECLSession.autECLOIA.WaitForAppAvailable
+    autECLSession.autECLOIA.WaitForInputReady
+    autECLSession.autECLPS.SendKeys "[enter]"
+
+    autECLSession.autECLPS.Wait 1000
+
+End Sub
+
+   Sub logoffComsec()
+      autECLSession.autECLPS.WaitForCursor 21, 22, 5000
+      autECLSession.autECLOIA.WaitForAppAvailable
+      autECLSession.autECLOIA.WaitForInputReady
+      autECLSession.autECLPS.SendKeys "[pf9]"
+      autECLSession.autECLPS.Wait 2000
+      autECLSession.autECLOIA.WaitForAppAvailable
+      autECLSession.autECLOIA.WaitForInputReady
+      autECLSession.autECLPS.SendKeys "[enter]"
+
+   End Sub
+
+   Sub promptForCredentials(myPrompt)
+   ' This function uses Internet Explorer to
+   ' create a dialog and prompt for input data for the macro.
+   '
+   ' Argument:   [string] prompt text, e.g. "Please enter data:"
+   ' Returns indirectly:    the data typed in the dialog screen
+   '
+   ' Adapted from Rob van der Woude
+   ' http://www.robvanderwoude.com
+
+   Dim objIE, strHTML, strRegValFB, strRegValLE, wshShell
+
+    Set wshShell = CreateObject("WScript.Shell")
+
+    ' Create an IE object
+    Set objIE = CreateObject("InternetExplorer.Application")
+    ' specify some of the IE window's settings
+    objIE.Navigate "about:blank"
+    ' Add string of "invisible" characters (500 tabs) to clear the title bar
+    objIE.Document.Title = "Password " & String(500, 7)
+    objIE.AddressBar = False
+    objIE.Resizable = False
+    objIE.StatusBar = False
+    objIE.Toolbar = False
+    objIE.Width = 320
+    objIE.Height = 500
+    ' Center the dialog window on the screen
+    With objIE.Document.parentWindow.screen
+        objIE.Left = (.availWidth - objIE.Width) \ 2
+        objIE.Top = (.availheight - objIE.Height) \ 2
+    End With
+    ' Wait till IE is ready
+    Do While objIE.Busy
+        WScript.Sleep 200
+    Loop
+    ' Insert the HTML code to prompt for a password
+    strHTML = "<div style=""text-align: center;"">" _
+            & "<p>" & myPrompt & "</p>" _
+            & "<p><input type=""Text"" size=""20"" id=""UserId"" /></p>" _
+            & "<p><input type=""Text"" size=""20"" id=""Country""  /></p>" _
+            & "<p><input type=""Text"" size=""20"" id=""EmployeeName""  /></p>" _
+            & "<p><input type=""Text"" size=""20"" id=""EmployeeNumber"" /></p>" _
+            & "<p><input type=""Text"" size=""20"" id=""ControlGroup""  /></p>" _
+            & "<p><input type=""password"" size=""20"" id=""UserPassword"" /></p>" _
+            & "<p><input type=""text"" size=""20"" id=""Division"" /></p>" _
+            & "<p><input type=""text"" size=""20"" id=""BusinessUnitCode"" /></p>" _
+            & "<p><input type=""text"" size=""20"" id=""UserEffectiveDate"" /></p>" _
+            & "<p><input type=""hidden"" id=""OK"" name=""OK"" value=""0"" />" _
+            & "<input type=""submit"" value="" OK "" id=""OKButton"" " _
+            & "onclick=""document.all.OK.value=1"" /></p>" _
+            & "</div>"
+    objIE.Document.body.innerHTML = strHTML
+    ' Hide the scrollbars
+    objIE.Document.body.Style.overflow = "auto"
+    ' Make the window visible
+    objIE.Visible = True
+    ' Set focus on password input field
+    'objIE.Document.all.Password.Focus
+
+    ' Wait till the OK button has been clicked
+    On Error Resume Next
+    Do While objIE.Document.all.OK.Value = 0
+        WScript.Sleep 2000
+        ' Error handling code by Denis St-Pierre
+    Loop
+    On Error GoTo 0
+
+    ' Read the data from the dialog window
+    userId = objIE.Document.all.userId.Value
+    country = objIE.Document.all.country.Value
+    employeeName = objIE.Document.all.employeeName.Value
+    employeeNumber = objIE.Document.all.employeeNumber.Value
+    controlGroup = objIE.Document.all.controlGroup.Value
+    userPassword = objIE.Document.all.userPassword.Value
+    division = objIE.Document.all.division.Value
+    businessUnitCode = objIE.Document.all.businessUnitCode.Value
+    userEffectiveDate = objIE.Document.all.userEffectiveDate.Value
+
+    ' Terminate the IE object
+    objIE.Quit
+    Set objIE = Nothing
+
+    On Error Resume Next
+
+    Set wshShell = Nothing
+   End Sub

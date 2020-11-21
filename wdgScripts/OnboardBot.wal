@@ -1,0 +1,118 @@
+î9import --name image1 --type "Image" --content iVBORw0KGgoAAAANSUhEUgAAABoAAAAiCAYAAABBY8kOAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHKSURBVEhLY5w4ceJ/BjxAWVmZwcbGBsojHzAaGRnhtQgEysrKGDw8PKA88gCzpKRkA5SNExw9epRBXFycQUVFBSpCOoD7qK+vj8HAwAAsCAOFhYUMFy9ehPIo8xkTlCYKdHV1MezYsQPKg4COu9uhLPyAJItAYOfOnVAWBIAssjneyXD581OoCHaA16L+/n6Gffv2gbG+vj5UFBNcAVpiC7Ss4sY6ho9/vkNFUQHJPsIHZjw6APbdkXe3oSIIQFWLQODx93cMPmcmM2ReWYLiO6pbBAPLn51i0D3UwLD11SUwn2YWgcAnoI+iL8xhiLowm7YWgYC1oApDpbIX7SziY+FkaFcPYthqmsegyytNG4tAvjhiWc6QKe8AFaFyHIF8MU0nGuwLOU4hqCgEEFV6IwNQxgVlZBgQ2JUHpr3EdBmm68Qw8AMtwwYo9pEs0OVLDVIYlhmk4rQEBAhWfOgAVF0gl+CgTInPAhhg/PDhA0kWkQtono9gYNQissGoRWQDulmENcMKCAhAWQgAVAemQXIwNikAp49AhiFjbJaTAoZGHIF8CcMwgIuN0yJkQ0AYW7yQErRExxE2gOwQQoDsoIP5Ep9DEICBAQD/rKRq6aKg4QAAAABJRU5ErkJggg==
+defVar --name term --type Window
+defVar --name status --type Boolean
+defVar --name imsCredentialsName --type String --value IMS_CREDS
+defVar --name imsUsername --type String
+defVar --name imsPassword --type SecureString
+defVar --name vaultSuccess --type Boolean
+defVar --name window --type Window
+defVar --name processId --type Numeric
+defVar --name foundWindow --type Boolean
+defVar --name foundBrowser --type Boolean
+defVar --name browser --type Browser
+defVar --name browserName --type String
+defVar --name leads --type DataTable
+defVar --name row_count --type Numeric
+defVar --name column_count --type Numeric
+defVar --name row_iterator --type Numeric --value 1
+defVar --name userId --type String
+defVar --name country --type String
+defVar --name employeeName --type String
+defVar --name employeeNumber --type String
+defVar --name controlGroup --type String
+defVar --name userPassword --type String
+defVar --name division --type String
+defVar --name businessUnitCode --type String
+defVar --name userEffectiveDate --type String
+defVar --name command --type String
+defVar --name systemQueueConnected --type Boolean
+defVar --name systemQueueConnection --type QueueConnection
+defVar --name gotQueue --type Boolean
+defVar --name dataQueue --type MessageQueue
+defVar --name queueMessage --type QueueMessage
+defVar --name messagesCount --type Numeric
+
+getVaultItem --name "${imsCredentialsName}" vaultSuccess=success imsUsername=userName imsPassword=password
+
+goSub --label loginToIMS
+goSub --label getCommandsFromQueue
+goSub --label logoffIMS
+
+beginSub --name getCommandsFromQueue
+	
+	connectSystemMQ systemQueueConnected=success systemQueueConnection=value
+	assert --message "Could not connect to WDG\'s system MQ." --left "${systemQueueConnected}" --operator "Is_True"
+	getQueue --connection ${systemQueueConnection} --fromconfiguration  --queue dataProcessing gotQueue=success dataQueue=value
+	assert --message "Could not get the queue!" --left "${gotQueue}" --operator "Is_True"
+	count --collection "${dataQueue}" messagesCount=value
+	while --left "${messagesCount}" --operator "Greater_Than" --right 0
+		dequeue --collection "${dataQueue}" --handleerror  queueMessage=value
+		jsonToTable --json "${queueMessage.Body}" --jsonPath "$" leads=value row_count=rows
+		setVar --name "${row_iterator}" --value 1
+		while --left "${row_count}" --operator "Greater_Than_Equal_To" --right "${row_iterator}"
+		// Store data in variables
+			mapTableRow --dataTable ${leads} --row ${row_iterator} --mappings "name=UserId=${userId},name=Country=${country},name=EmployeeName=${employeeName},name=EmployeeNumber=${employeeNumber},name=controlGroup=${controlGroup},name=password=${userPassword},name=division=${division},name=businessUnitCode=${businessUnitCode},name=userEffectiveDate=${userEffectiveDate},name=command=${command}"
+			logMessage --message "Dequeued userId: ${userId} from dataProcessing queue\r\n" --type "Info"
+			
+		// process command
+			goSub --label addUserToIMS
+			evaluate --expression "${row_iterator} + 1" row_iterator=value
+		endWhile
+		count --collection "${dataQueue}" messagesCount=value
+	endWhile
+	
+endSub
+
+beginSub --name loginToIMS
+	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+	attachWindow --window ${term}
+	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run login macro"
+	keyboard --type "KeyDown" --key "Down"
+	keyboard --type "KeyDown" --key "Return"
+	delay --timeout 00:00:05
+	findWindow --classname IEFrame window=value processId=processId foundWindow=success
+	attachWindow --window ${window}
+// Find the Internet Explorer browser instance containing the credentials dialog box
+	findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
+	webSet --value "${imsUsername}" --selector "Id" --id Username
+	webSet --value "${imsPassword}" --selector "Id" --id IMSPassword
+	delay --timeout 00:00:05
+	webClick --selector "Id" --id OKButton
+endSub
+
+
+beginSub --name logoffIMS
+	delay --timeout 00:00:15
+	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+	attachWindow --window ${term}
+	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run login macro"
+	keyboard --type "KeyDown" --key "Down"
+	keyboard --type "KeyDown" --key "Down"
+	keyboard --type "KeyDown" --key "Return"
+	delay --timeout 00:00:05
+endSub
+
+beginSub --name addUserToIMS
+	delay --timeout 00:00:15
+	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+	attachWindow --window ${term}
+	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run add user macro"
+	keyboard --type "KeyDown" --key "Return"
+	delay --timeout 00:00:05
+	findWindow --classname IEFrame window=value processId=processId foundWindow=success
+	attachWindow --window ${window}
+// Find the Internet Explorer browser instance containing the credentials dialog box
+	findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
+	webSet --value "${userId}" --selector "Id" --id UserId
+	webSet --value "${country}" --selector "Id" --id Country
+	webSet --value "${employeeName}" --selector "Id" --id EmployeeName
+	webSet --value "${employeeNumber}" --selector "Id" --id EmployeeNumber
+	webSet --value "${controlGroup}" --selector "Id" --id ControlGroup
+	webSet --value "${userPassword}" --selector "Id" --id UserPassword
+	webSet --value "${division}" --selector "Id" --id Division
+	webSet --value "${businessUnitCode}" --selector "Id" --id BusinessUnitCode
+	webSet --value "${userEffectiveDate}" --selector "Id" --id UserEffectiveDate
+	
+	delay --timeout 00:00:05
+	webClick --selector "Id" --id OKButton
+endSub*	20.10.0.0

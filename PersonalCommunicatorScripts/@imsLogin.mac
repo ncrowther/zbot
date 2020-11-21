@@ -1,0 +1,153 @@
+Rem ********** IBM PERSONAL COMMUNICATOR VBSCRIPT MACRO *****************
+Rem
+Rem  This script logs into IMS using  credentials in the IE dialog box
+Rem
+Rem This script needs to be placed in the IBM personal Communicator root directory for the installed user, For me this is:
+Rem  C:\Users\NigelCrowther\AppData\Roaming\IBM\Personal Communications
+Rem
+
+[PCOMM SCRIPT HEADER]
+Language = VBSCRIPT
+Description =
+[PCOMM SCRIPT SOURCE]
+Option Explicit
+autECLSession.SetConnectionByName (ThisSessionName)
+
+Dim imsUsername
+Dim imsPassword
+
+Rem This line calls the macro subroutine
+
+promptForCredentials ("Login to IMS")
+loginToIMS
+selectAddUserScreen
+
+
+Sub loginToIMS()
+  autECLSession.autECLPS.WaitForCursor 24, 5, 5000
+  autECLSession.autECLOIA.WaitForAppAvailable
+
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "IMSABC"
+  autECLSession.autECLPS.Wait 1000
+  autECLSession.autECLPS.SendKeys "[enter]"
+
+  autECLSession.autECLPS.WaitForCursor 3, 15, 5000
+  autECLSession.autECLOIA.WaitForAppAvailable
+  autECLSession.autECLOIA.WaitForInputReady
+
+  autECLSession.autECLPS.SendKeys (imsUsername)
+  autECLSession.autECLPS.Wait 1000
+
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[tab]"
+
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[tab]"
+
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys (imsPassword)
+  autECLSession.autECLPS.Wait 2000
+
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[enter]"
+
+  autECLSession.autECLOIA.WaitForAppAvailable
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[pf1]"
+
+  autECLSession.autECLPS.WaitForCursor 20, 31, 5000
+  autECLSession.autECLOIA.WaitForAppAvailable
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "2"
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[enter]"
+
+End Sub
+
+Sub selectAddUserScreen()
+
+  Rem OPTION 2 - ADD USER
+  autECLSession.autECLPS.WaitForCursor 19, 31, 5000
+  autECLSession.autECLOIA.WaitForAppAvailable
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "2"
+  autECLSession.autECLPS.Wait 1000
+  autECLSession.autECLOIA.WaitForInputReady
+  autECLSession.autECLPS.SendKeys "[enter]"
+
+End Sub
+
+
+Sub promptForCredentials(myPrompt)
+   ' This function uses Internet Explorer to
+   ' create a dialog and prompt for input data for the macro.
+   '
+   ' Argument:   [string] prompt text, e.g. "Please enter data:"
+   ' Returns indirectly:    the data typed in the dialog screen
+   '
+   ' Adapted from Rob van der Woude
+   ' http://www.robvanderwoude.com
+
+   Dim objIE, strHTML, strRegValFB, strRegValLE, wshShell
+
+    Set wshShell = CreateObject("WScript.Shell")
+
+    ' Create an IE object
+    Set objIE = CreateObject("InternetExplorer.Application")
+    ' specify some of the IE window's settings
+    objIE.Navigate "about:blank"
+    ' Add string of "invisible" characters (500 tabs) to clear the title bar
+    objIE.Document.Title = "Password " & String(500, 7)
+    objIE.AddressBar = False
+    objIE.Resizable = False
+    objIE.StatusBar = False
+    objIE.Toolbar = False
+    objIE.Width = 320
+    objIE.Height = 500
+    ' Center the dialog window on the screen
+    With objIE.Document.parentWindow.screen
+        objIE.Left = (.availWidth - objIE.Width) \ 2
+        objIE.Top = (.availheight - objIE.Height) \ 2
+    End With
+    ' Wait till IE is ready
+    Do While objIE.Busy
+        WScript.Sleep 200
+    Loop
+    ' Insert the HTML code to prompt for a password
+    strHTML = "<div style=""text-align: center;"">" _
+            & "<p>" & myPrompt & "</p>" _
+            & "<p><input type=""Text"" size=""20"" id=""Username"" /></p>" _
+            & "<p><input type=""password"" size=""20"" id=""IMSPassword""  /></p>" _
+            & "<p><input type=""hidden"" id=""OK"" name=""OK"" value=""0"" />" _
+            & "<input type=""submit"" value="" OK "" id=""OKButton"" " _
+            & "onclick=""document.all.OK.value=1"" /></p>" _
+            & "</div>"
+    objIE.Document.body.innerHTML = strHTML
+    ' Hide the scrollbars
+    objIE.Document.body.Style.overflow = "auto"
+    ' Make the window visible
+    objIE.Visible = True
+    ' Set focus on password input field
+    'objIE.Document.all.Password.Focus
+
+    ' Wait till the OK button has been clicked
+    On Error Resume Next
+    Do While objIE.Document.all.OK.Value = 0
+        WScript.Sleep 2000
+        ' Error handling code by Denis St-Pierre
+    Loop
+    On Error GoTo 0
+
+    ' Read the data from the dialog window
+    imsUsername = objIE.Document.all.UserName.Value
+    imsPassword = objIE.Document.all.imsPassword.Value
+
+    ' Terminate the IE object
+    objIE.Quit
+    Set objIE = Nothing
+
+    On Error Resume Next
+
+    Set wshShell = Nothing
+   End Sub

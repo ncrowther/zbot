@@ -1,0 +1,32 @@
+Rem ********** IBM PERSONAL COMMUNICATOR VBSCRIPT MACRO *****************
+Rem
+Rem  This script logs out of IMS.
+Rem  Precondition: IMS is logged in and option 2 (add user is selected)
+Rem
+Rem This script needs to be placed in the IBM personal Communicator root directory for the installed user, For me this is:
+Rem  C:\Users\NigelCrowther\AppData\Roaming\IBM\Personal Communications
+Rem
+
+[PCOMM SCRIPT HEADER]
+Language = VBSCRIPT
+Description =
+[PCOMM SCRIPT SOURCE]
+Option Explicit
+autECLSession.SetConnectionByName (ThisSessionName)
+
+
+Rem This line calls the macro subroutine
+
+logoffComsec
+
+Sub logoffComsec()
+      autECLSession.autECLPS.WaitForCursor 21, 22, 5000
+      autECLSession.autECLOIA.WaitForAppAvailable
+      autECLSession.autECLOIA.WaitForInputReady
+      autECLSession.autECLPS.SendKeys "[pf9]"
+      autECLSession.autECLPS.Wait 2000
+      autECLSession.autECLOIA.WaitForAppAvailable
+      autECLSession.autECLOIA.WaitForInputReady
+      autECLSession.autECLPS.SendKeys "[enter]"
+
+End Sub
