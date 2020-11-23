@@ -2,7 +2,7 @@
 ID=WS
 Version=9
 [Telnet3270]
-HostName=tn3270.uk.ibm.com
+HostName=[HOSTNAME]
 HostPortNumber=992
 Security=Y
 SecurityPackage=MS
@@ -20,4 +20,4 @@ Language=United-Kingdom(166)
 IBMDefaultKeyboard=N
 DefaultKeyboard=C:\Users\NigelCrowther\AppData\Roaming\IBM\Personal Communications\TN3270.KMP
 [LastExitView]
-A=3 52 52 1296 689 7 16 22 400 0 PComm Session— 285
+A=3 52 52 1296 689 7 16 22 400 0 PComm Sessionï¿½ 285
