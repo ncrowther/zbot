@@ -1,6 +1,5 @@
 
-	n)6	“9èJ”ë-"¯ÓU¾ŸCimport --name image1 --type "Image" --content iVBORw0KGgoAAAANSUhEUgAAABoAAAAiCAYAAABBY8kOAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHKSURBVEhLY5w4ceJ/BjxAWVmZwcbGBsojHzAaGRnhtQgEysrKGDw8PKA88gCzpKRkA5SNExw9epRBXFycQUVFBSpCOoD7qK+vj8HAwAAsCAOFhYUMFy9ehPIo8xkTlCYKdHV1MezYsQPKg4COu9uhLPyAJItAYOfOnVAWBIAssjneyXD581OoCHaA16L+/n6Gffv2gbG+vj5UFBNcAVpiC7Ss4sY6ho9/vkNFUQHJPsIHZjw6APbdkXe3oSIIQFWLQODx93cMPmcmM2ReWYLiO6pbBAPLn51i0D3UwLD11SUwn2YWgcAnoI+iL8xhiLowm7YWgYC1oApDpbIX7SziY+FkaFcPYthqmsegyytNG4tAvjhiWc6QKe8AFaFyHIF8MU0nGuwLOU4hqCgEEFV6IwNQxgVlZBgQ2JUHpr3EdBmm68Qw8AMtwwYo9pEs0OVLDVIYlhmk4rQEBAhWfOgAVF0gl+CgTInPAhhg/PDhA0kWkQtono9gYNQissGoRWQDulmENcMKCAhAWQgAVAemQXIwNikAp49AhiFjbJaTAoZGHIF8CcMwgIuN0yJkQ0AYW7yQErRExxE2gOwQQoDsoIP5Ep9DEICBAQD/rKRq6aKg4QAAAABJRU5ErkJggg==
-defVar --name term --type Window
+	n)6	“9èJ”ë-"¯ÓU¾—;defVar --name term --type Window
 defVar --name status --type Boolean
 defVar --name imsCredentialsName --type String --value IMS_CREDS
 defVar --name imsUsername --type String
@@ -39,112 +38,126 @@ getVaultItem --name "${imsCredentialsName}" vaultSuccess=success imsUsername=use
 goSub --label readQueue
 
 beginSub --name readQueue
-	
-	connectSystemMQ systemQueueConnected=success systemQueueConnection=value
-	assert --message "Could not connect to WDG\'s system MQ." --left "${systemQueueConnected}" --operator "Is_True"
-	getQueue --connection ${systemQueueConnection} --fromconfiguration  --queue dataProcessing gotQueue=success dataQueue=value
-	assert --message "Could not get the queue!" --left "${gotQueue}" --operator "Is_True"
-	count --collection "${dataQueue}" messagesCount=value
-	
-	if --left "${messagesCount}" --operator "Greater_Than" --right 0
-		logMessage --message "Processing  ${messagesCount} records from the queue" --type "Info"
-		goSub --label processIMSdata
-	else
-		logMessage --message "Nothing to process.  Queue empty" --type "Info"
-	endIf
-	
+
+connectSystemMQ systemQueueConnected=success systemQueueConnection=value
+assert --message "Could not connect to WDG\'s system MQ." --left "${systemQueueConnected}" --operator "Is_True"
+getQueue --connection ${systemQueueConnection} --fromconfiguration  --queue dataProcessing gotQueue=success dataQueue=value
+assert --message "Could not get the queue!" --left "${gotQueue}" --operator "Is_True"
+count --collection "${dataQueue}" messagesCount=value
+
+if --left "${messagesCount}" --operator "Greater_Than" --right 0
+	logMessage --message "Processing  ${messagesCount} records from the queue" --type "Info"
+	goSub --label processIMSdata
+else
+	logMessage --message "Nothing to process.  Queue empty" --type "Info"
+endIf
+
 endSub
 
 beginSub --name processIMSdata
-	goSub --label loginToIMS
-	goSub --label processQueue
-	goSub --label logoffIMS
+goSub --label loginToIMS
+goSub --label processQueue
+goSub --label logoffIMS
 endSub
 
 beginSub --name processQueue
-	while --left "${messagesCount}" --operator "Greater_Than" --right 0
-		dequeue --collection "${dataQueue}" --handleerror  queueMessage=value
-		jsonToTable --json "${queueMessage.Body}" --jsonPath "$" leads=value row_count=rows
-		setVar --name "${row_iterator}" --value 1
-		while --left "${row_count}" --operator "Greater_Than_Equal_To" --right "${row_iterator}"
+while --left "${messagesCount}" --operator "Greater_Than" --right 0
+	dequeue --collection "${dataQueue}" --handleerror  queueMessage=value
+	jsonToTable --json "${queueMessage.Body}" --jsonPath "$" leads=value row_count=rows
+	setVar --name "${row_iterator}" --value 1
+	while --left "${row_count}" --operator "Greater_Than_Equal_To" --right "${row_iterator}"
 		// Store data in variables
-			mapTableRow --dataTable ${leads} --row ${row_iterator} --mappings "name=UserId=${userId},name=Country=${country},name=EmployeeName=${employeeName},name=EmployeeNumber=${employeeNumber},name=controlGroup=${controlGroup},name=password=${userPassword},name=division=${division},name=businessUnitCode=${businessUnitCode},name=userEffectiveDate=${userEffectiveDate},name=command=${command}"
-			logMessage --message "Dequeued userId: ${userId} from dataProcessing queue\r\n" --type "Info"
-			
+		mapTableRow --dataTable ${leads} --row ${row_iterator} --mappings "name=UserId=${userId},name=Country=${country},name=EmployeeName=${employeeName},name=EmployeeNumber=${employeeNumber},name=controlGroup=${controlGroup},name=password=${userPassword},name=division=${division},name=businessUnitCode=${businessUnitCode},name=userEffectiveDate=${userEffectiveDate},name=command=${command}"
+		logMessage --message "Dequeued userId: ${userId} from dataProcessing queue\r\n" --type "Info"
+		
 		// process command
-			if --left "${command}" --operator "Equal_To" --right CREATE
-				goSub --label addUserToIMS
-				evaluate --expression "${row_iterator} + 1" row_iterator=value
-			elseIf --left "${command}" --operator "Equal_To" --right UPDATE
-				goSub --label modifyUserInIMS
-			elseIf --left "${command}" --operator "Equal_To" --right DELETE
-				goSub --label deleteUserfromIMS
-			endIf
-		endWhile
-		count --collection "${dataQueue}" messagesCount=value
+		if --left "${command}" --operator "Equal_To" --right CREATE
+			goSub --label addUserToIMS
+			evaluate --expression "${row_iterator} + 1" row_iterator=value
+		elseIf --left "${command}" --operator "Equal_To" --right UPDATE
+			goSub --label modifyUserInIMS
+		elseIf --left "${command}" --operator "Equal_To" --right DELETE
+			goSub --label deleteUserfromIMS
+		endIf
 	endWhile
+	count --collection "${dataQueue}" messagesCount=value
+endWhile
 endSub
 
 beginSub --name loginToIMS
-	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
-	attachWindow --window ${term}
-	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run login macro"
-	keyboard --type "KeyDown" --key "Down"
-	keyboard --type "KeyDown" --key "Return"
-	delay --timeout 00:00:05
-	findWindow --classname IEFrame window=value processId=processId foundWindow=success
-	attachWindow --window ${window}
+launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+attachWindow --window ${term}
+//  Run login macro
+click --selector "Name" --controlsimilarity 100 --name Actions
+keyboard --type "KeyDown" --key "L"
+keyboard --type "KeyDown" --key "Down"
+keyboard --type "KeyDown" --key "Return"
+delay --timeout 00:00:05
+findWindow --classname IEFrame window=value processId=processId foundWindow=success
+attachWindow --window ${window}
 // Find the Internet Explorer browser instance containing the credentials dialog box
-	findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
-	webSet --value "${imsUsername}" --selector "Id" --id Username
-	webSet --value "${imsPassword}" --selector "Id" --id IMSPassword
-	delay --timeout 00:00:05
-	webClick --selector "Id" --id OKButton
+findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
+webSet --value "${imsUsername}" --selector "Id" --id Username
+webSet --value "${imsPassword}" --selector "Id" --id IMSPassword
+// delay --timeout 00:00:05
+webClick --selector "Id" --id OKButton
+webClose --name "${browserName}"
+
+delay --timeout 00:00:10
 endSub
 
 
 beginSub --name logoffIMS
-	delay --timeout 00:00:05
-	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
-	attachWindow --window ${term}
-	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run login macro"
-	keyboard --type "KeyDown" --key "Down"
-	keyboard --type "KeyDown" --key "Down"
-	keyboard --type "KeyDown" --key "Return"
-	delay --timeout 00:00:05
+delay --timeout 00:00:01
+launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+attachWindow --window ${term}
+
+//  Run logoff macro
+click --selector "Name" --controlsimilarity 100 --name Actions
+keyboard --type "KeyDown" --key "L"
+keyboard --type "KeyDown" --key "Down"
+keyboard --type "KeyDown" --key "Down"
+keyboard --type "KeyDown" --key "Return"
 endSub
 
 beginSub --name addUserToIMS
-	delay --timeout 00:00:10
-	launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
-	attachWindow --window ${term}
-	click --selector "XPath" --controlimage ${asset.image1} --controlsimilarity 100 --simulatehuman  --xpath "/root/pane[1]/pane[1]/scrollbar[1]/pane[1]/pane[1]/toolbar[1]/button[4]" --comment "Run add user macro"
-	keyboard --type "KeyDown" --key "Return"
-	delay --timeout 00:00:05
-	findWindow --classname IEFrame window=value processId=processId foundWindow=success
-	attachWindow --window ${window}
+delay --timeout 00:00:01
+launchOrAttach --executablepath "C:\\Program Files\\IBM\\Personal Communications\\pcsws.exe" --parameters "ims.ws" --useregex  --regexPattern "Session*" --regexOptions "0" --timeout 00:00:06 term=value status=success
+attachWindow --window ${term}
+
+//  Run add user macro
+click --selector "Name" --controlsimilarity 100 --name Actions
+keyboard --type "KeyDown" --key "L"
+keyboard --type "KeyDown" --key "Return"
+
+delay --timeout 00:00:05
+findWindow --classname IEFrame window=value processId=processId foundWindow=success
+attachWindow --window ${window}
 // Find the Internet Explorer browser instance containing the credentials dialog box
-	findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
-	webSet --value "${userId}" --selector "Id" --id UserId
-	webSet --value "${country}" --selector "Id" --id Country
-	webSet --value "${employeeName}" --selector "Id" --id EmployeeName
-	webSet --value "${employeeNumber}" --selector "Id" --id EmployeeNumber
-	webSet --value "${controlGroup}" --selector "Id" --id ControlGroup
-	webSet --value "${userPassword}" --selector "Id" --id UserPassword
-	webSet --value "${division}" --selector "Id" --id Division
-	webSet --value "${businessUnitCode}" --selector "Id" --id BusinessUnitCode
-	webSet --value "${userEffectiveDate}" --selector "Id" --id UserEffectiveDate
-	
-// delay --timeout 00:00:01
-	webClick --selector "Id" --id OKButton
-	
-	delay --timeout 00:00:05
-	findWindow --classname IEFrame window=value processId=processId foundWindow=success
-	attachWindow --window ${window}
-	findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
-	webGet --selector "Id" --id Result result=value
-	webClick --selector "Id" --id OKButton
-	logMessage --message "Result: ${result}" --type "Info"
+findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
+webSet --value "${userId}" --selector "Id" --id UserId
+webSet --value "${country}" --selector "Id" --id Country
+webSet --value "${employeeName}" --selector "Id" --id EmployeeName
+webSet --value "${employeeNumber}" --selector "Id" --id EmployeeNumber
+webSet --value "${controlGroup}" --selector "Id" --id ControlGroup
+webSet --value "${userPassword}" --selector "Id" --id UserPassword
+webSet --value "${division}" --selector "Id" --id Division
+webSet --value "${businessUnitCode}" --selector "Id" --id BusinessUnitCode
+webSet --value "${userEffectiveDate}" --selector "Id" --id UserEffectiveDate
+
+//delay --timeout 00:00:05
+webClick --selector "Id" --id OKButton
+webClose --name "${browserName}"
+
+delay --timeout 00:00:05
+findWindow --classname IEFrame window=value processId=processId foundWindow=success
+attachWindow --window ${window}
+findBrowser --selector "XPath" --xpath "/root" --timeout 00:00:10 foundBrowser=success browser=value browserName=name
+webGet --selector "Id" --id Result result=value
+webClick --selector "Id" --id OKButton
+logMessage --message "Result: ${result}" --type "Info"
+
+webClose --name "${browserName}"
 endSub
 
 beginSub --name modifyUserInIMS

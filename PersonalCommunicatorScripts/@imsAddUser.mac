@@ -29,7 +29,6 @@ Rem This line calls the macro subroutine
 promptForCredentials ("Enter Data")
 
 addUser
-'logoffComsec
 
 Sub addUser()
 
